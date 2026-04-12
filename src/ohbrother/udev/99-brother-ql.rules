@@ -1,0 +1,7 @@
+# Brother QL-series label printers - allow access without root
+# Install: sudo cp 99-brother-ql.rules /etc/udev/rules.d/
+#          sudo udevadm control --reload-rules && sudo udevadm trigger
+SUBSYSTEM=="usb", ATTR{idVendor}=="04f9", MODE="0666"
+# Also allow access to the virtual disk block device the QL-800 exposes
+SUBSYSTEM=="block", ENV{ID_VENDOR_ID}=="04f9", MODE="0666"
+SUBSYSTEM=="scsi_generic", ENV{ID_VENDOR_ID}=="04f9", MODE="0666"
