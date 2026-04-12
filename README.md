@@ -2,7 +2,7 @@
 
 Brother QL-800 label printing on Linux without proprietary software.
 
-Requires Python 3.11+. Uses [brother_ql](https://github.com/pklaus/brother_ql) for rasterization and [pyusb](https://github.com/pyusb/pyusb) for USB I/O.
+Requires Python 3.11+. Dependencies: [pyusb](https://github.com/pyusb/pyusb) for USB I/O, [Pillow](https://python-pillow.org) for image handling. Rasterization is implemented in-house.
 
 ## Background
 
@@ -91,13 +91,13 @@ identifier = next(d["identifier"] for d in discover() if d["usable"])
 
 ### Die-cut labels
 
-`convert()` in brother_ql requires the image to be exactly `(width_px, height_px)` for die-cut labels — any mismatch raises a `ValueError`. `render_for_label()` handles this automatically. If you construct images manually, use `label_dims(label_id)` to get the required pixel dimensions.
+Die-cut labels require the image to be exactly `(width_px, height_px)` — any mismatch raises a `ValueError`. `render_for_label()` handles this automatically. If you construct images manually, use `label_dims(label_id)` to get the required pixel dimensions.
 
 ### Two-color tape (DK-22251)
 
 Always use `label="62red"` and `red=True`, even for black-only prints. Single-color mode against two-color tape produces a generic error with no error bits; `validate_preflight()` catches this before the write and raises `TapeMismatchError`.
 
-Red vs black separation is done by brother_ql via HSV: hue < 40 or > 210, saturation > 100, value > 80. `(255, 0, 0)` renders as red ink; `(0, 0, 0)` renders as black. Both can appear in the same image.
+Red vs black separation uses HSV: hue < 40 or > 210, saturation > 100, value > 80. `(255, 0, 0)` renders as red ink; `(0, 0, 0)` renders as black. Both can appear in the same image.
 
 ## License
 
