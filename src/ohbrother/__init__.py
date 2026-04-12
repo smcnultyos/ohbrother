@@ -11,6 +11,7 @@
 from .exceptions import EditorLiteModeError, PrinterError, StatusError, TapeMismatchError
 from .printer import PrintOptions, Printer
 from .render import label_dims, render_for_label, render_text
+from .raster import rasterize
 
 __all__ = [
     "Printer",
@@ -22,4 +23,5 @@ __all__ = [
     "label_dims",
     "render_for_label",
     "render_text",
+    "rasterize",
 ]

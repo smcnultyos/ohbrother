@@ -4,14 +4,12 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from . import _suppress  # noqa: F401 — must precede brother_ql imports
 from .backend import BrotherQLBackendQL800
 from .exceptions import PrinterError
-from .status import validate_preflight
+from .labels import LABELS
+from .raster import rasterize
 from .render import label_dims
-
-from brother_ql.raster import BrotherQLRaster
-from brother_ql.conversion import convert
+from .status import validate_preflight
 
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
@@ -24,10 +22,9 @@ class PrintOptions:
     DK-22251 (black+red 62mm) requires label="62red" and red=True,
     even for black-only prints.
 
-    compress has no effect on the QL-800 — it is absent from brother_ql's
-    compressionsupport list, so the command byte is never emitted and
-    _compression stays False regardless. The field is retained for
-    compatibility with other QL models that do support PackBits compression.
+    compress is not listed here — the QL-800 does not support PackBits
+    compression (it is absent from the protocol's compression-capable model
+    list), so the field would have no effect.
     """
     label: str = "62"
     model: str = "QL-800"
@@ -35,7 +32,6 @@ class PrintOptions:
     dpi_600: bool = False
     hq: bool = True
     cut: bool = True
-    compress: bool = False
     dither: bool = False
     threshold: float = 70.0
     red: bool = False
@@ -73,8 +69,7 @@ class Printer:
 
     def reset(self) -> None:
         """Send invalidate + initialize (ESC @) to recover from a stuck state."""
-        be = self._require_open()
-        be.write(b'\x00' * 200 + b'\x1B\x40')
+        self._require_open().write(b"\x00" * 200 + b"\x1B\x40")
 
     def cut(self) -> None:
         """Feed and cut without printing.
@@ -84,48 +79,38 @@ class Printer:
         """
         be = self._require_open()
         opts = self._opts
+        label = LABELS[opts.label]
 
-        from brother_ql.devicedependent import label_type_specs, ENDLESS_LABEL
-        from brother_ql.exceptions import BrotherQLUnsupportedCmd
+        import struct
+        from io import BytesIO
 
-        spec = label_type_specs[opts.label]
-        tape_w, tape_h = spec['tape_size']
-        is_endless = spec['kind'] == ENDLESS_LABEL
+        buf = BytesIO()
+        buf.write(b"\x1B\x69\x61\x01")  # ESC i a
+        buf.write(b"\x00" * 200)          # invalidate
+        buf.write(b"\x1B\x40")            # ESC @
+        buf.write(b"\x1B\x69\x61\x01")  # ESC i a
 
-        qlr = BrotherQLRaster(opts.model)
-        try:
-            qlr.add_switch_mode()
-        except BrotherQLUnsupportedCmd:
-            pass
-        qlr.add_invalidate()
-        qlr.add_initialize()
-        try:
-            qlr.add_switch_mode()
-        except BrotherQLUnsupportedCmd:
-            pass
+        mtype = 0x0A if label.form_factor == "endless" else 0x0B
+        valid_flags = 0x80 | 0x02 | 0x04 | 0x08
+        payload = struct.pack(
+            "<BBBBLBB",
+            valid_flags,
+            mtype,
+            label.tape_size[0],
+            label.tape_size[1],
+            0,    # 0 raster lines
+            0,    # page 0
+            0x00,
+        )
+        buf.write(b"\x1B\x69\x7A" + payload)   # ESC i z
+        buf.write(b"\x1B\x69\x4D\x40")          # ESC i M: autocut on
+        buf.write(b"\x1B\x69\x41\x01")          # ESC i A: cut every 1
+        exp = 0x08 | (0x01 if opts.red else 0x00)
+        buf.write(b"\x1B\x69\x4B" + bytes([exp]))  # ESC i K
+        buf.write(b"\x1B\x69\x64" + struct.pack("<H", 0))  # ESC i d: 0 margin
+        buf.write(b"\x1A")                       # print + cut
 
-        qlr.mtype = 0x0A if is_endless else 0x0B
-        qlr.mwidth = tape_w
-        qlr.mlength = 0 if is_endless else tape_h
-        qlr.pquality = 1
-        qlr.add_media_and_quality(0)
-
-        try:
-            qlr.add_autocut(True)
-            qlr.add_cut_every(1)
-        except BrotherQLUnsupportedCmd:
-            pass
-        try:
-            qlr.cut_at_end = True
-            qlr.two_color_printing = opts.red
-            qlr.add_expanded_mode()
-        except BrotherQLUnsupportedCmd:
-            pass
-
-        qlr.add_margins(0)
-        qlr.add_print(last_page=True)
-
-        be.write(qlr.data)
+        be.write(buf.getvalue())
         time.sleep(0.2)
 
     def print_images(self, images: list[PILImage]) -> dict:
@@ -135,24 +120,20 @@ class Printer:
 
         validate_preflight(be.request_status(), red=opts.red, label=opts.label)
 
-        qlr = BrotherQLRaster(opts.model)
-        qlr.exception_on_warning = True
-        convert(
-            qlr,
+        data = rasterize(
             images,
             opts.label,
             rotate=opts.rotate,
             dpi_600=opts.dpi_600,
             hq=opts.hq,
             cut=opts.cut,
-            compress=opts.compress,
             dither=opts.dither,
             threshold=opts.threshold,
             red=opts.red,
         )
 
         with be.drain_context():
-            be.write(qlr.data)
+            be.write(data)
 
         time.sleep(0.3)
         return be.request_status()

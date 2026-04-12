@@ -4,6 +4,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from .labels import LABELS
+
 _DEFAULT_FONTS = [
     "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/liberation-sans-fonts/LiberationSans-Bold.ttf",
@@ -14,16 +16,13 @@ _DEFAULT_FONTS = [
 
 
 def label_dims(label_id: str) -> tuple[int, int]:
-    """Return (width_px, height_px) from brother_ql label specs.
+    """Return (width_px, height_px) for a label type. height_px is 0 for endless.
 
-    height_px is 0 for endless tape. Die-cut labels require images sized
-    to exactly (width_px, height_px).
+    Die-cut labels require images sized to exactly (width_px, height_px).
     """
-    from brother_ql.labels import ALL_LABELS
-    label = next((l for l in ALL_LABELS if l.identifier == label_id), None)
-    if label is None:
-        raise ValueError(f"Unknown label identifier: {label_id!r}. Run 'ohbrother list-labels'.")
-    return label.dots_printable
+    if label_id not in LABELS:
+        raise ValueError(f"Unknown label: {label_id!r}. Run 'ohbrother list-labels'.")
+    return LABELS[label_id].dots_printable
 
 
 def _load_font(font_size: int, font_path: str | None) -> ImageFont.FreeTypeFont:
@@ -48,14 +47,14 @@ def render_text(
     font_path: str | None = None,
     text_color: tuple[int, int, int] = (0, 0, 0),
 ) -> Image.Image:
-    """Word-wrap text into an RGB image.
+    """Word-wrap text into an RGB image sized to label_width_px.
 
     If label_height_px is provided the canvas is exactly that height and the
     text block is vertically centered — required for die-cut labels, which
     reject any image whose height doesn't match the label spec exactly.
 
     text_color controls the ink color. Use (255, 0, 0) for red on two-color
-    tape; brother_ql separates the passes by HSV hue (red = hue < 40 or > 210).
+    tape; the rasterizer separates passes by HSV hue (red = hue < 40 or > 210).
     """
     font = _load_font(font_size, font_path)
 
@@ -111,9 +110,8 @@ def render_for_label(
 ) -> Image.Image:
     """Render text sized for a specific label type.
 
-    Equivalent to calling label_dims(label_id) then render_text() with the
-    right label_width_px / label_height_px. Use this instead of render_text()
-    when working with die-cut labels.
+    Handles die-cut canvas sizing automatically. Equivalent to calling
+    label_dims(label_id) then render_text() with the correct dimensions.
     """
     w, h = label_dims(label_id)
     return render_text(

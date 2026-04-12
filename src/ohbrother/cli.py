@@ -87,15 +87,15 @@ def _parse_text_color(value: str) -> tuple[int, int, int]:
         return (255, 0, 0)
     if value.lower() == "black":
         return (0, 0, 0)
-    # Accept hex or r,g,b
     if value.startswith("#"):
         v = value.lstrip("#")
-        r, g, b = int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16)
-        return (r, g, b)
+        return (int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16))
     parts = value.split(",")
     if len(parts) == 3:
         return (int(parts[0]), int(parts[1]), int(parts[2]))
-    raise argparse.ArgumentTypeError(f"Unknown color: {value!r}. Use 'black', 'red', '#rrggbb', or 'r,g,b'.")
+    raise argparse.ArgumentTypeError(
+        f"Unknown color: {value!r}. Use 'black', 'red', '#rrggbb', or 'r,g,b'."
+    )
 
 
 def _cmd_detect() -> None:
@@ -112,13 +112,14 @@ def _cmd_detect() -> None:
 
 
 def _cmd_list_labels() -> None:
-    from brother_ql.labels import ALL_LABELS
+    from .labels import LABELS
     print(f"{'ID':<14} {'Name':<32} {'Size (mm)':<12} Pixels")
     print("-" * 72)
-    for lbl in ALL_LABELS:
+    for lbl in LABELS.values():
         w, h = lbl.tape_size
         size = f"{w}x{h}" if h else f"{w}"
-        px = f"{lbl.dots_printable[0]}x{lbl.dots_printable[1]}" if h else f"{lbl.dots_printable[0]}"
+        pw, ph = lbl.dots_printable
+        px = f"{pw}x{ph}" if ph else f"{pw}"
         print(f"{lbl.identifier:<14} {lbl.name:<32} {size:<12} {px}")
 
 
@@ -192,19 +193,14 @@ def _cmd_print(args: argparse.Namespace) -> None:
         )]
 
     if args.dry_run:
-        from . import _suppress  # noqa: F401
-        from brother_ql.raster import BrotherQLRaster
-        from brother_ql.conversion import convert as bql_convert
-
-        qlr = BrotherQLRaster(opts.model)
-        qlr.exception_on_warning = True
-        bql_convert(
-            qlr, images, opts.label,
+        from .raster import rasterize
+        data = rasterize(
+            images, opts.label,
             rotate=opts.rotate, dpi_600=opts.dpi_600, hq=opts.hq,
-            cut=opts.cut, compress=opts.compress, dither=opts.dither,
+            cut=opts.cut, dither=opts.dither,
             threshold=opts.threshold, red=opts.red,
         )
-        print(f"[dry-run] {len(qlr.data)} bytes — {opts.label} via {identifier}")
+        print(f"[dry-run] {len(data)} bytes — {opts.label} via {identifier}")
         return
 
     with Printer(identifier, opts) as p:
