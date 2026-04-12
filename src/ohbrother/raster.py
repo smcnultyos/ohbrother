@@ -54,6 +54,12 @@ def rasterize(
         raise ValueError(f"Unknown label: {label_id!r}. Run 'ohbrother list-labels'.")
 
     label = LABELS[label_id]
+    if label.dots_printable[0] > DEVICE_PIXEL_WIDTH:
+        raise ValueError(
+            f"Label '{label_id}' requires {label.dots_printable[0]}px print width "
+            f"but QL-800 device width is {DEVICE_PIXEL_WIDTH}px. "
+            f"This label requires a QL-1050 or QL-1060N."
+        )
     thresh_int = min(255, max(0, int((100.0 - threshold) / 100.0 * 255)))
 
     buf = BytesIO()

@@ -32,6 +32,9 @@ ohbrother-install-udev = "ohbrother.udev_install:main"
 [project.urls]
 Repository = "https://github.com/smcnulty/ohbrother"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/ohbrother"]
 
