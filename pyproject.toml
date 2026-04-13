@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ohbrother"
-version = "0.1.0"
+version = "0.1.1"
 description = "Rootless Brother QL-800 label printing without proprietary software"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -30,7 +30,7 @@ ohbrother = "ohbrother.cli:main"
 ohbrother-install-udev = "ohbrother.udev_install:main"
 
 [project.urls]
-Repository = "https://github.com/smcnulty/ohbrother"
+Repository = "https://github.com/smcnultyos/ohbrother"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
