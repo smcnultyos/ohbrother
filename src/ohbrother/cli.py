@@ -18,6 +18,8 @@ def _build_parser() -> argparse.ArgumentParser:
               ohbrother print --label 29x90 "Jane Smith\\n123 Main St"
               ohbrother print --image artwork.png
               ohbrother print --dry-run "test"
+              ohbrother address "jane smith 123 main st springfield il 62701"
+              ohbrother address --label 62x100 "john doe 456 oak ave chicago il"
               ohbrother cut
               ohbrother detect
               ohbrother list-labels
@@ -65,6 +67,18 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_status = sub.add_parser("status", help="query printer status")
     p_status.add_argument("--printer", metavar="USB_ID")
+
+    p_address = sub.add_parser("address", help="format and print an address label")
+    p_address.add_argument("text", help="unformatted address string")
+    p_address.add_argument("--label", default="29x90",
+                           choices=["29x90", "62x100"],
+                           help="address label type (default: 29x90 / DK-1201)")
+    p_address.add_argument("--printer", metavar="USB_ID")
+    p_address.add_argument("--model", default="QL-800")
+    p_address.add_argument("--font-size", type=int, default=60, metavar="PTS")
+    p_address.add_argument("--font", metavar="PATH")
+    p_address.add_argument("--dry-run", action="store_true",
+                           help="rasterize but don't send to printer")
 
     return parser
 
@@ -178,6 +192,12 @@ def _cmd_print(args: argparse.Namespace) -> None:
     if args.image:
         images = [render_image(args.image)]
     else:
+        from .address import looks_like_address
+        if looks_like_address(args.text):
+            print(
+                "Hint: looks like an address — try `ohbrother address` for formatted output.",
+                file=sys.stderr,
+            )
         try:
             text_color = _parse_text_color(args.text_color)
         except argparse.ArgumentTypeError as e:
@@ -213,12 +233,44 @@ def _cmd_print(args: argparse.Namespace) -> None:
         print(f"Done — {post.get('status_type')}")
 
 
+def _cmd_address(args: argparse.Namespace) -> None:
+    from .printer import Printer, PrintOptions
+    from .render import render_address
+
+    identifier = _resolve_printer(args.printer)
+    opts = PrintOptions(label=args.label, model=args.model)
+
+    try:
+        img = render_address(args.text, args.label, font_size=args.font_size,
+                             font_path=args.font)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if args.dry_run:
+        from .raster import rasterize
+        data = rasterize([img], opts.label)
+        print(f"[dry-run] {len(data)} bytes — {opts.label} via {identifier}")
+        return
+
+    with Printer(identifier, opts) as p:
+        st = p.status()
+        print(f"Ready — {st.get('media_width_mm')}mm {st.get('media_type')} tape")
+        post = p.print_images([img])
+        if post.get("errors"):
+            print(f"Errors: {', '.join(post['errors'])}", file=sys.stderr)
+            sys.exit(1)
+        print(f"Done — {post.get('status_type')}")
+
+
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
 
     if args.command == "print":
         _cmd_print(args)
+    elif args.command == "address":
+        _cmd_address(args)
     elif args.command == "cut":
         _cmd_cut(args)
     elif args.command == "detect":

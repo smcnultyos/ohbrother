@@ -127,3 +127,22 @@ def render_for_label(
 
 def render_image(path: str | Path) -> Image.Image:
     return Image.open(path).convert("RGB")
+
+
+def render_address(
+    raw: str,
+    label_id: str = "29x90",
+    *,
+    font_size: int = 60,
+    padding: int = 10,
+    font_path: str | None = None,
+) -> Image.Image:
+    """Format raw address text and render it for the given address label."""
+    from .address import format_address
+    return render_for_label(
+        format_address(raw),
+        label_id,
+        font_size=font_size,
+        padding=padding,
+        font_path=font_path,
+    )

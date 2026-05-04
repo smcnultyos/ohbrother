@@ -8,9 +8,10 @@
         p.print_images([img])
 """
 
+from .address import format_address, looks_like_address
 from .exceptions import EditorLiteModeError, PrinterError, StatusError, TapeMismatchError
 from .printer import PrintOptions, Printer
-from .render import label_dims, render_for_label, render_text
+from .render import label_dims, render_address, render_for_label, render_text
 from .raster import rasterize
 
 __all__ = [
@@ -20,7 +21,10 @@ __all__ = [
     "EditorLiteModeError",
     "StatusError",
     "TapeMismatchError",
+    "format_address",
+    "looks_like_address",
     "label_dims",
+    "render_address",
     "render_for_label",
     "render_text",
     "rasterize",

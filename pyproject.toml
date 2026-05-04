@@ -23,6 +23,7 @@ classifiers = [
 dependencies = [
     "pyusb>=1.2",
     "Pillow>=10.0",
+    "usaddress>=0.5",
 ]
 
 [project.scripts]
