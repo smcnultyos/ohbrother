@@ -89,20 +89,22 @@ class TestLooksLikeAddress(unittest.TestCase):
 
 class TestRenderAddress(unittest.TestCase):
 
-    def test_29x90_returns_correct_dimensions(self):
+    def test_29x90_returns_landscape_dimensions(self):
+        # Address labels are rendered landscape (90mm wide, 29mm tall) so text
+        # reads left-to-right; the rasterizer auto-rotates to portrait for printing.
         img = render_address("jane smith 123 main st springfield il 62701", "29x90")
         w, h = label_dims("29x90")
-        self.assertEqual(img.size, (w, h))
+        self.assertEqual(img.size, (h, w))  # landscape: height becomes width
 
-    def test_62x100_returns_correct_dimensions(self):
+    def test_62x100_returns_landscape_dimensions(self):
         img = render_address("jane smith 123 main st springfield il 62701", "62x100")
         w, h = label_dims("62x100")
-        self.assertEqual(img.size, (w, h))
+        self.assertEqual(img.size, (h, w))  # landscape: height becomes width
 
     def test_default_label_is_29x90(self):
         img = render_address("jane smith 123 main st springfield il 62701")
         w, h = label_dims("29x90")
-        self.assertEqual(img.size, (w, h))
+        self.assertEqual(img.size, (h, w))
 
 
 class TestPrintHint(unittest.TestCase):

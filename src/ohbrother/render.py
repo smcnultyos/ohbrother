@@ -133,15 +133,22 @@ def render_address(
     raw: str,
     label_id: str = "29x90",
     *,
-    font_size: int = 60,
+    font_size: int = 70,
     padding: int = 10,
     font_path: str | None = None,
 ) -> Image.Image:
-    """Format raw address text and render it for the given address label."""
+    """Format raw address text and render it landscape for the given address label.
+
+    Renders with the long dimension as the text width so the address reads
+    left-to-right on the physical label. The rasterizer's auto-rotate flips
+    the image to portrait to match the tape's printable area.
+    """
     from .address import format_address
-    return render_for_label(
+    w, h = label_dims(label_id)
+    return render_text(
         format_address(raw),
-        label_id,
+        label_width_px=h,   # landscape: long dim as text width
+        label_height_px=w,  # landscape: short dim as text height
         font_size=font_size,
         padding=padding,
         font_path=font_path,
