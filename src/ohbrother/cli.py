@@ -193,6 +193,8 @@ def _cmd_print(args: argparse.Namespace) -> None:
         images = [render_image(args.image)]
     else:
         from .address import looks_like_address
+        from .render import label_dims
+        from .labels import LABELS
         if looks_like_address(args.text):
             print(
                 "Hint: looks like an address — try `ohbrother address` for formatted output.",
@@ -203,14 +205,45 @@ def _cmd_print(args: argparse.Namespace) -> None:
         except argparse.ArgumentTypeError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
-        images = [render_for_label(
-            args.text,
-            args.label,
-            font_size=args.font_size,
-            padding=args.padding,
-            font_path=args.font,
-            text_color=text_color,
-        )]
+        # For die-cut labels, --rotate 90/270 must swap canvas dims at render
+        # time (the rasterizer validates exact px size and can't rotate text).
+        # We render landscape and let rasterize auto-rotate to portrait.
+        # Portrait die-cuts (h > w, e.g. 29x90 address labels) also default to
+        # landscape so text reads across the long dimension without --rotate.
+        rotate_val = args.rotate
+        label_info = LABELS.get(args.label)
+        is_portrait_diecut = (
+            label_info is not None
+            and label_info.form_factor != "endless"
+            and label_info.dots_printable[1] > label_info.dots_printable[0]
+        )
+        if (label_info is not None and label_info.form_factor != "endless"
+                and (rotate_val in ("90", "270")
+                     or (rotate_val == "auto" and is_portrait_diecut))):
+            # Swap canvas dims so text reads landscape; rasterize auto-rotate
+            # will then rotate the image 90° to fit the portrait die-cut area.
+            from .render import render_text
+            w, h = label_dims(args.label)
+            images = [render_text(
+                args.text,
+                label_width_px=h,
+                label_height_px=w,
+                font_size=args.font_size,
+                padding=args.padding,
+                font_path=args.font,
+                text_color=text_color,
+            )]
+            import dataclasses
+            opts = dataclasses.replace(opts, rotate="auto")
+        else:
+            images = [render_for_label(
+                args.text,
+                args.label,
+                font_size=args.font_size,
+                padding=args.padding,
+                font_path=args.font,
+                text_color=text_color,
+            )]
 
     if args.dry_run:
         from .raster import rasterize
