@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ohbrother"
-version = "0.1.1"
+version = "0.1.2"
 description = "Rootless Brother QL-800 label printing without proprietary software"
 readme = "README.md"
 license = { file = "LICENSE" }
